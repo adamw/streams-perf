@@ -20,14 +20,15 @@ def rendezvousUsingCatsEffect(): Unit =
       if i > max then IO(assert(acc == sumUpTo(max)))
       else q.take.flatMap(_ => p2(i + 1, q, acc + i))
 
-    val ec = ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor())
+    val _ec = Executors.newSingleThreadExecutor()
+    val ec = ExecutionContext.fromExecutor(_ec)
     val app = for {
       q <- Queue.synchronous[IO, Int]
       f1 <- p1(0, q).startOn(ec)
       f2 <- p2(0, q, 0).startOn(ec)
       _ <- f1.joinWithUnit
       _ <- f2.joinWithUnit
-      _ <- IO(ec.shutdown())
+      _ <- IO(_ec.shutdown())
     } yield ()
 
     app.unsafeRunSync()

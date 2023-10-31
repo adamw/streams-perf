@@ -4,15 +4,18 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.LockSupport;
 
 // -Djdk.virtualThreadScheduler.parallelism=1 -Djdk.virtualThreadScheduler.maxPoolSize=1 -Djdk.virtualThreadScheduler.minRunnable=1
-public class Rendezvous {
-    private final int spinIterations;
-    private final int yieldIterations;
+// with changes inspired by Exchanger
+public class Rendezvous2 {
     private final AtomicReference<ThreadAndCell> waiting = new AtomicReference<>();
 
-    public Rendezvous(int spinIterations, int yieldIterations) {
-        this.spinIterations = spinIterations;
-        this.yieldIterations = yieldIterations;
+    private final boolean doSpinWait;
+
+    public Rendezvous2(boolean doSpinWait) {
+        this.doSpinWait = doSpinWait;
     }
+
+    private static final int SPINS = 1 << 10;
+    private static final int NCPU = Runtime.getRuntime().availableProcessors();
 
     public void test() throws Exception {
         long start = System.currentTimeMillis();
@@ -27,17 +30,23 @@ public class Rendezvous {
 
                 if (waiting.compareAndSet(null, new ThreadAndCell(ourThread, ourCell))) {
                     // CAS was successful, we are the first thread: parking and waiting for the data to be consumed
-                    int doSpin = spinIterations;
-                    int doYield = yieldIterations;
+                    int spins = SPINS;
+                    int h = 0;
+                    Thread t = Thread.currentThread();
                     while (ourCell.get() != -1) {
-                        if (doSpin > 0) {
-                            Thread.onSpinWait();
-                            doSpin -= 1;
-                        } else if (doYield > 0) {
-                            Thread.yield();
-                            doYield -= 1;
+                        if (spins > 0) {
+                            h ^= h << 1; h ^= h >>> 3; h ^= h << 10; // xorshift
+                            if (h == 0) {                // initialize hash
+                                h = SPINS | (int) t.threadId();
+                                if (doSpinWait) Thread.onSpinWait();
+                            } else if (h < 0 &&          // approx 50% true
+                                    (--spins & ((SPINS >>> 1) - 1)) == 0) {
+                                Thread.yield();        // two yields per wait
+                            } else {
+                                if (doSpinWait) Thread.onSpinWait();
+                            }
                         } else {
-                            LockSupport.park();
+                            LockSupport.park(t);
                         }
                     }
                 } else {
@@ -61,17 +70,23 @@ public class Rendezvous {
                 AtomicReference<Integer> ourCell = new AtomicReference<>(-1); // -1 -> no data provided yet
                 if (waiting.compareAndSet(null, new ThreadAndCell(ourThread, ourCell))) {
                     // CAS was successful, we are the first thread: parking and waiting for the data to be provided
-                    int doSpin = spinIterations;
-                    int doYield = yieldIterations;
+                    int spins = SPINS;
+                    int h = 0;
+                    Thread t = Thread.currentThread();
                     while (ourCell.get() == -1) {
-                        if (doSpin > 0) {
-                            Thread.onSpinWait();
-                            doSpin -= 1;
-                        } else if (doYield > 0) {
-                            Thread.yield();
-                            doYield -= 1;
+                        if (spins > 0) {
+                            h ^= h << 1; h ^= h >>> 3; h ^= h << 10; // xorshift
+                            if (h == 0) {                // initialize hash
+                                h = SPINS | (int) t.threadId();
+                                if (doSpinWait) Thread.onSpinWait();
+                            } else if (h < 0 &&          // approx 50% true
+                                    (--spins & ((SPINS >>> 1) - 1)) == 0) {
+                                Thread.yield();        // two yields per wait
+                            } else {
+                                if (doSpinWait) Thread.onSpinWait();
+                            }
                         } else {
-                            LockSupport.park();
+                            LockSupport.park(t);
                         }
                     }
                     acc += ourCell.get();
@@ -95,7 +110,7 @@ public class Rendezvous {
         t2.join();
 
         long end = System.currentTimeMillis();
-        System.out.println("Took (spin=" + spinIterations + ", yield=" + yieldIterations + "): " + (end - start) + " ms");
+        System.out.println("Took (v2, spinWait=" + doSpinWait + "): " + (end - start) + " ms");
     }
 
     private long sumUpTo(int max) {
@@ -103,40 +118,4 @@ public class Rendezvous {
     }
 
     private record ThreadAndCell(Thread thread, AtomicReference<Integer> cell) {}
-
-    public static void main(String[] args) throws Exception {
-        for (int i=0; i<100; i++) {
-//            new Rendezvous(1, 0).test();
-//            new Rendezvous(10, 0).test();
-//            new Rendezvous(100, 0).test();
-            //new Rendezvous(1000, 0).test();
-
-//            new Rendezvous(0, 0).test();
-//            new Rendezvous(1000, 0).test();
-//            new Rendezvous(5000, 0).test();
-//            new Rendezvous(10000, 0).test();
-//            new Rendezvous(100000, 0).test();
-//
-//            new Rendezvous(0, 1).test();
-//            new Rendezvous(0, 2).test();
-//            new Rendezvous(0, 3).test();
-//            new Rendezvous(0, 4).test();
-//            new Rendezvous(0, 8).test();
-//
-//            new Rendezvous(10000, 1).test();
-//            new Rendezvous(10000, 4).test();
-
-            //
-
-//            new Rendezvous(10000, 0).test();
-//
-//            new Rendezvous2(false).test();
-//            new Rendezvous2(true).test();
-//
-//            RendezvousUsingSynchronousQueue.test();
-            RendezvousUsingExchanger.test();
-
-//            System.out.println("");
-        }
-    }
 }

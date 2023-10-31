@@ -1,18 +1,19 @@
 package perf2;
 
+import java.util.concurrent.Exchanger;
 import java.util.concurrent.SynchronousQueue;
 
-public class RendezvousUsingSynchronousQueue {
+public class RendezvousUsingExchanger {
     public static void test() throws Exception {
         long startTime = System.currentTimeMillis();
         final int max = 10_000_000;
-        SynchronousQueue<Integer> data = new SynchronousQueue<>();
+        Exchanger<Integer> data = new Exchanger<>();
 
         Thread t1 = Thread.ofVirtual().start(() -> {
             int i = 0;
             while (i <= max) {
                 try {
-                    data.put(i);
+                    data.exchange(i);
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
@@ -24,7 +25,7 @@ public class RendezvousUsingSynchronousQueue {
             long acc = 0L;
             for (int i = 0; i <= max; i++) {
                 try {
-                    acc += data.take();
+                    acc += data.exchange(-1);
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
@@ -36,17 +37,10 @@ public class RendezvousUsingSynchronousQueue {
         t2.join();
 
         long endTime = System.currentTimeMillis();
-        System.out.println("SynchronousQueue Took: " + (endTime - startTime) + " ms");
+        System.out.println("Exchanger took: " + (endTime - startTime) + " ms");
     }
 
     public static long sumUpTo(int max) {
         return (long) max * (max + 1) / 2;
-    }
-
-    public static void main(String[] args) throws Exception {
-        for (int i = 0; i < 10; i++) {
-            test();
-            RendezvousUsingExchanger.test();
-        }
     }
 }

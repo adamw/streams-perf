@@ -14,14 +14,13 @@ public class Rendezvous2 {
     private volatile boolean consumed = false;
     private volatile int data2 = -1; // used to transmit data if t2 wins the race (and waits for t1)
 
-    private final boolean doSpinWait;
+    private final int spinIterations;
+    private final int yieldIterations;
 
-    public Rendezvous2(boolean doSpinWait) {
-        this.doSpinWait = doSpinWait;
+    public Rendezvous2(int spinIterations, int yieldIterations) {
+        this.spinIterations = spinIterations;
+        this.yieldIterations = yieldIterations;
     }
-
-    private static final int SPINS = 1 << 10;
-    private static final int NCPU = Runtime.getRuntime().availableProcessors();
 
     // VarHandle mechanics
     private static final VarHandle WAITING;
@@ -47,22 +46,17 @@ public class Rendezvous2 {
                 if (WAITING.compareAndSet(Rendezvous2.this, null, ourThread)) {
                     // CAS was successful, we are the first thread: parking and waiting for the already set
                     // `data` to be `consumed`
-                    int spins = SPINS;
-                    int h = 0;
+                    int doSpin = spinIterations;
+                    int doYield = yieldIterations;
                     while (!consumed) {
-                        if (spins > 0) {
-                            h ^= h << 1; h ^= h >>> 3; h ^= h << 10; // xorshift
-                            if (h == 0) {                // initialize hash
-                                h = SPINS | (int) ourThread.threadId();
-                                if (doSpinWait) Thread.onSpinWait();
-                            } else if (h < 0 &&          // approx 50% true
-                                    (--spins & ((SPINS >>> 1) - 1)) == 0) {
-                                Thread.yield();        // two yields per wait
-                            } else {
-                                if (doSpinWait) Thread.onSpinWait();
-                            }
+                        if (doSpin > 0) {
+                            Thread.onSpinWait();
+                            doSpin -= 1;
+                        } else if (doYield > 0) {
+                            Thread.yield();
+                            doYield -= 1;
                         } else {
-                            LockSupport.park(ourThread);
+                            LockSupport.park();
                         }
                     }
                     // resetting for the next iteration
@@ -88,22 +82,17 @@ public class Rendezvous2 {
                 if (WAITING.compareAndSet(Rendezvous2.this, null, ourThread)) {
                     // CAS was successful, we are the first thread: parking and waiting for the data
                     // to be provided in `data2`
-                    int spins = SPINS;
-                    int h = 0;
+                    int doSpin = spinIterations;
+                    int doYield = yieldIterations;
                     while (data2 == -1) {
-                        if (spins > 0) {
-                            h ^= h << 1; h ^= h >>> 3; h ^= h << 10; // xorshift
-                            if (h == 0) {                // initialize hash
-                                h = SPINS | (int) ourThread.threadId();
-                                if (doSpinWait) Thread.onSpinWait();
-                            } else if (h < 0 &&          // approx 50% true
-                                    (--spins & ((SPINS >>> 1) - 1)) == 0) {
-                                Thread.yield();        // two yields per wait
-                            } else {
-                                if (doSpinWait) Thread.onSpinWait();
-                            }
+                        if (doSpin > 0) {
+                            Thread.onSpinWait();
+                            doSpin -= 1;
+                        } else if (doYield > 0) {
+                            Thread.yield();
+                            doYield -= 1;
                         } else {
-                            LockSupport.park(ourThread);
+                            LockSupport.park();
                         }
                     }
 
@@ -130,7 +119,7 @@ public class Rendezvous2 {
         t2.join();
 
         long end = System.currentTimeMillis();
-        System.out.println("Took (v2, spinWait=" + doSpinWait + "): " + (end - start) + " ms");
+        System.out.println("Took (v2, spinIterations=" + spinIterations + ", yieldIterations=" + yieldIterations + "): " + (end - start) + " ms");
     }
 
     private long sumUpTo(int max) {

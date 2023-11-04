@@ -131,7 +131,7 @@ public class Rendezvous {
 //            new Rendezvous(10000, 0).test();
 //
 //            new Rendezvous2(false).test();
-            new Rendezvous2(true).test();
+            new Rendezvous2(10000, 0).test();
 //
 //            RendezvousUsingSynchronousQueue.test();
             RendezvousUsingExchanger.test();

@@ -90,8 +90,8 @@ def rendezvousUsingCatsEffect2(): Unit =
     val ec = ExecutionContext.fromExecutor(_ec)
     val app = for {
       q <- Ref[IO].of[Option[(Long, Deferred[IO, Long])]](None)
-      f1 <- p1(0, q).start //.startOn(ec)
-      f2 <- p2(0, q, 0).start //.startOn(ec)
+      f1 <- p1(0, q).start // .startOn(ec)
+      f2 <- p2(0, q, 0).start // .startOn(ec)
       _ <- f1.joinWithUnit
       _ <- f2.joinWithUnit
       _ <- IO(_ec.shutdown())

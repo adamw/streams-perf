@@ -19,7 +19,7 @@ public class Rendezvous {
 
         final int max = 10_000_000;
 
-        Thread t1 = Thread.ofPlatform().start(() -> {
+        Thread t1 = Thread.ofVirtual().start(() -> {
             Thread ourThread = Thread.currentThread();
 
             for (int i = 0; i <= max; i++) {
@@ -53,7 +53,7 @@ public class Rendezvous {
             }
         });
 
-        Thread t2 = Thread.ofPlatform().start(() -> {
+        Thread t2 = Thread.ofVirtual().start(() -> {
             long acc = 0L;
             Thread ourThread = Thread.currentThread();
 
@@ -105,7 +105,7 @@ public class Rendezvous {
     private record ThreadAndCell(Thread thread, AtomicReference<Integer> cell) {}
 
     public static void main(String[] args) throws Exception {
-        for (int i=0; i<100; i++) {
+        for (int i=0; i<25; i++) {
 //            new Rendezvous(1, 0).test();
 //            new Rendezvous(10, 0).test();
 //            new Rendezvous(100, 0).test();
@@ -131,12 +131,12 @@ public class Rendezvous {
 //            new Rendezvous(10000, 0).test();
 //
 //            new Rendezvous2(false).test();
-//            new Rendezvous2(true).test();
+            new Rendezvous2(true).test();
 //
 //            RendezvousUsingSynchronousQueue.test();
             RendezvousUsingExchanger.test();
 
-//            System.out.println("");
+            System.out.println("");
         }
     }
 }

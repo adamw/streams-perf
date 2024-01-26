@@ -4,13 +4,17 @@ package perf
   try
     for (i <- 1 to 10) {
       println(s"Run $i")
-//      usingOx(0)
-//      usingOx(1)
-//      usingOx(100)
+//      usingJox(100)
+      usingOx(0)
+      usingOx(1)
+      usingOx(10)
+      usingOx(100)
+      usingOx(1000)
 //      usingBlockingQueue(1)
-//      usingBlockingQueue(100)
-//      usingAkka()
-//      usingMonix()
+      usingBlockingQueue(100)
+      usingBlockingQueue(1000)
+      usingAkka()
+      usingMonix()
 
       //      rendezvousUsingLockSupport()
       //      rendezvousUsingLockSupport2()

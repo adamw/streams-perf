@@ -17,11 +17,10 @@ lazy val core: Project = (project in file("core"))
   .settings(
     name := "core",
     libraryDependencies ++= Seq(
-      "com.softwaremill.ox" %% "core" % "0.0.14",
+      "com.softwaremill.ox" %% "core" % "0.0.18",
       "com.typesafe.akka" %% "akka-stream" % "2.6.20",
       "io.monix" %% "monix" % "3.4.1",
       "io.monix" %% "monix-catnap" % "3.4.1",
-      "org.jctools" % "jctools-core" % "4.0.1",
       scalaTest
     )
   )
